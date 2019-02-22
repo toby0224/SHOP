@@ -32,9 +32,9 @@ function escape(val, timeZone, dialect, format) {
       if (dialect === 'sqlite' || dialect === 'mssql') {
         return +!!val;
       }
-      return '' + !!val;
+      return (!!val).toString();
     case 'number':
-      return val + '';
+      return val.toString();
     case 'string':
     // In mssql, prepend N to all quoted vals which are originally a string (for
     // unicode compatibility)
@@ -57,13 +57,13 @@ function escape(val, timeZone, dialect, format) {
   if (Array.isArray(val)) {
     const partialEscape = _.partial(escape, _, timeZone, dialect, format);
     if (dialect === 'postgres' && !format) {
-      return dataTypes.ARRAY.prototype.stringify(val, {escape: partialEscape});
+      return dataTypes.ARRAY.prototype.stringify(val, { escape: partialEscape });
     }
     return arrayToList(val, timeZone, dialect, format);
   }
 
   if (!val.replace) {
-    throw new Error('Invalid value ' + util.inspect(val));
+    throw new Error(`Invalid value ${util.inspect(val)}`);
   }
 
   if (dialect === 'postgres' || dialect === 'sqlite' || dialect === 'mssql') {
@@ -84,11 +84,11 @@ function escape(val, timeZone, dialect, format) {
         case '\b': return '\\b';
         case '\t': return '\\t';
         case '\x1a': return '\\Z';
-        default: return '\\' + s;
+        default: return `\\${s}`;
       }
     });
   }
-  return (prependN ? "N'" : "'") + val + "'";
+  return `${(prependN ? "N'" : "'") + val}'`;
 }
 exports.escape = escape;
 
@@ -96,8 +96,9 @@ function format(sql, values, timeZone, dialect) {
   values = [].concat(values);
 
   if (typeof sql !== 'string') {
-    throw new Error('Invalid SQL string provided: ' + sql);
+    throw new Error(`Invalid SQL string provided: ${sql}`);
   }
+
   return sql.replace(/\?/g, match => {
     if (!values.length) {
       return match;
@@ -116,9 +117,8 @@ function formatNamedParameters(sql, values, timeZone, dialect) {
 
     if (values[key] !== undefined) {
       return escape(values[key], timeZone, dialect, true);
-    } else {
-      throw new Error('Named parameter "' + value + '" has no value in the given object.');
     }
+    throw new Error(`Named parameter "${value}" has no value in the given object.`);
   });
 }
 exports.formatNamedParameters = formatNamedParameters;

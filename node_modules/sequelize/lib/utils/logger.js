@@ -8,17 +8,16 @@
  * @private
  */
 
-const depd = require('depd'),
-  debug = require('debug'),
-  _ = require('lodash');
+const depd = require('depd');
+const debug = require('debug');
 
 class Logger {
   constructor(config) {
 
-    this.config = _.extend({
+    this.config = Object.assign({
       context: 'sequelize',
       debug: true
-    }, config || {});
+    }, config);
 
     this.depd = depd(this.config.context);
     this.debug = debug(this.config.context);
@@ -44,4 +43,10 @@ class Logger {
   }
 }
 
-module.exports = Logger;
+exports.Logger = Logger;
+
+const logger = new Logger();
+
+exports.deprecate = logger.deprecate.bind(logger);
+exports.warn = logger.warn.bind(logger);
+exports.getLogger = () =>  logger ;

@@ -7,6 +7,19 @@ module.exports = BaseTypes => {
   const warn = BaseTypes.ABSTRACT.warn.bind(undefined, 'https://www.sqlite.org/datatype3.html');
 
   /**
+   * Removes unsupported SQLite options, i.e., UNSIGNED and ZEROFILL, for the integer data types.
+   * @param dataType The base integer data type.
+   * @private
+   */
+  function removeUnsupportedIntegerOptions(dataType) {
+    if (dataType._zerofill || dataType._unsigned) {
+      warn(`SQLite does not support '${dataType.key}' with UNSIGNED or ZEROFILL. Plain '${dataType.key}' will be used instead.`);
+      dataType._unsigned = undefined;
+      dataType._zerofill = undefined;
+    }
+  }
+
+  /**
    * @see https://sqlite.org/datatype3.html
    */
 
@@ -49,12 +62,11 @@ module.exports = BaseTypes => {
   inherits(DATE, BaseTypes.DATE);
 
   DATE.parse = function parse(date, options) {
-    if (date.indexOf('+') === -1) {
+    if (!date.includes('+')) {
       // For backwards compat. Dates inserted by sequelize < 2.0dev12 will not have a timestamp set
       return new Date(date + options.timezone);
-    } else {
-      return new Date(date); // We already have a timezone stored in the string
     }
+    return new Date(date); // We already have a timezone stored in the string
   };
 
   function DATEONLY() {
@@ -75,10 +87,9 @@ module.exports = BaseTypes => {
 
   STRING.prototype.toSql = function toSql() {
     if (this._binary) {
-      return 'VARCHAR BINARY(' + this._length + ')';
-    } else {
-      return BaseTypes.STRING.prototype.toSql.call(this);
+      return `VARCHAR BINARY(${this._length})`;
     }
+    return BaseTypes.STRING.prototype.toSql.call(this);
   };
 
   function TEXT(length) {
@@ -95,6 +106,16 @@ module.exports = BaseTypes => {
     return 'TEXT';
   };
 
+  function CITEXT() {
+    if (!(this instanceof CITEXT)) return new CITEXT();
+    BaseTypes.CITEXT.apply(this, arguments);
+  }
+  inherits(CITEXT, BaseTypes.CITEXT);
+
+  CITEXT.prototype.toSql = function toSql() {
+    return 'TEXT COLLATE NOCASE';
+  };
+
   function CHAR(length, binary) {
     if (!(this instanceof CHAR)) return new CHAR(length, binary);
     BaseTypes.CHAR.apply(this, arguments);
@@ -103,10 +124,9 @@ module.exports = BaseTypes => {
 
   CHAR.prototype.toSql = function toSql() {
     if (this._binary) {
-      return 'CHAR BINARY(' + this._length + ')';
-    } else {
-      return BaseTypes.CHAR.prototype.toSql.call(this);
+      return `CHAR BINARY(${this._length})`;
     }
+    return BaseTypes.CHAR.prototype.toSql.call(this);
   };
 
   function NUMBER(options) {
@@ -126,9 +146,9 @@ module.exports = BaseTypes => {
     }
 
     if (this._length) {
-      result += '(' + this._length;
+      result += `(${this._length}`;
       if (typeof this._decimals === 'number') {
-        result += ',' + this._decimals;
+        result += `,${this._decimals}`;
       }
       result += ')';
     }
@@ -138,6 +158,8 @@ module.exports = BaseTypes => {
   function TINYINT(length) {
     if (!(this instanceof TINYINT)) return new TINYINT(length);
     BaseTypes.TINYINT.apply(this, arguments);
+
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(TINYINT, BaseTypes.TINYINT);
 
@@ -148,6 +170,8 @@ module.exports = BaseTypes => {
   function SMALLINT(length) {
     if (!(this instanceof SMALLINT)) return new SMALLINT(length);
     BaseTypes.SMALLINT.apply(this, arguments);
+
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(SMALLINT, BaseTypes.SMALLINT);
 
@@ -158,6 +182,8 @@ module.exports = BaseTypes => {
   function MEDIUMINT(length) {
     if (!(this instanceof MEDIUMINT)) return new MEDIUMINT(length);
     BaseTypes.MEDIUMINT.apply(this, arguments);
+
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(MEDIUMINT, BaseTypes.MEDIUMINT);
 
@@ -168,6 +194,8 @@ module.exports = BaseTypes => {
   function INTEGER(length) {
     if (!(this instanceof INTEGER)) return new INTEGER(length);
     BaseTypes.INTEGER.apply(this, arguments);
+
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(INTEGER, BaseTypes.INTEGER);
 
@@ -178,6 +206,8 @@ module.exports = BaseTypes => {
   function BIGINT(length) {
     if (!(this instanceof BIGINT)) return new BIGINT(length);
     BaseTypes.BIGINT.apply(this, arguments);
+
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(BIGINT, BaseTypes.BIGINT);
 
@@ -214,12 +244,14 @@ module.exports = BaseTypes => {
 
   [FLOAT, DOUBLE, REAL].forEach(floating => {
     floating.parse = function parse(value) {
-      if (_.isString(value)) {
+      if (typeof value === 'string') {
         if (value === 'NaN') {
           return NaN;
-        } else if (value === 'Infinity') {
+        }
+        if (value === 'Infinity') {
           return Infinity;
-        } else if (value === '-Infinity') {
+        }
+        if (value === '-Infinity') {
           return -Infinity;
         }
       }
@@ -257,7 +289,8 @@ module.exports = BaseTypes => {
     BIGINT,
     TEXT,
     ENUM,
-    JSON: JSONTYPE
+    JSON: JSONTYPE,
+    CITEXT
   };
 
   _.forIn(exports, (DataType, key) => {

@@ -2,7 +2,8 @@
 
 const _ = require('lodash');
 const Promise = require('../../promise');
-const UnknownConstraintError = require('../../errors').UnknownConstraintError;
+const sequelizeErrors = require('../../errors');
+const QueryTypes = require('../../query-types');
 
 /**
  Returns an object that treats SQLite's inabilities to do certain queries.
@@ -17,11 +18,8 @@ const UnknownConstraintError = require('../../errors').UnknownConstraintError;
   It will create a backup of the table, drop the table afterwards and create a
   new table with the same name but without the obsolete column.
 
-  @method removeColumn
-  @for    QueryInterface
-
-  @param  {String} tableName     The name of the table.
-  @param  {String} attributeName The name of the attribute that we want to remove.
+  @param  {string} tableName     The name of the table.
+  @param  {string} attributeName The name of the attribute that we want to remove.
   @param  {Object} options
   @param  {Boolean|Function} [options.logging] A function that logs the sql queries, or false for explicitly not logging these queries
 
@@ -37,7 +35,7 @@ function removeColumn(tableName, attributeName, options) {
     const sql = this.QueryGenerator.removeColumnQuery(tableName, fields);
     const subQueries = sql.split(';').filter(q => q !== '');
 
-    return Promise.each(subQueries, subQuery => this.sequelize.query(subQuery + ';', _.assign({raw: true}, options)));
+    return Promise.each(subQueries, subQuery => this.sequelize.query(`${subQuery};`, Object.assign({ raw: true }, options)));
   });
 }
 exports.removeColumn = removeColumn;
@@ -47,10 +45,7 @@ exports.removeColumn = removeColumn;
   It will create a backup of the table, drop the table afterwards and create a
   new table with the same name but with a modified version of the respective column.
 
-  @method changeColumn
-  @for    QueryInterface
-
-  @param  {String} tableName The name of the table.
+  @param  {string} tableName The name of the table.
   @param  {Object} attributes An object with the attribute's name as key and its options as value object.
   @param  {Object} options
   @param  {Boolean|Function} [options.logging] A function that logs the sql queries, or false for explicitly not logging these queries
@@ -68,7 +63,7 @@ function changeColumn(tableName, attributes, options) {
     const sql = this.QueryGenerator.removeColumnQuery(tableName, fields);
     const subQueries = sql.split(';').filter(q => q !== '');
 
-    return Promise.each(subQueries, subQuery => this.sequelize.query(subQuery + ';', _.assign({raw: true}, options)));
+    return Promise.each(subQueries, subQuery => this.sequelize.query(`${subQuery};`, Object.assign({ raw: true }, options)));
   });
 }
 exports.changeColumn = changeColumn;
@@ -78,12 +73,9 @@ exports.changeColumn = changeColumn;
   It will create a backup of the table, drop the table afterwards and create a
   new table with the same name but with a renamed version of the respective column.
 
-  @method renameColumn
-  @for    QueryInterface
-
-  @param  {String} tableName The name of the table.
-  @param  {String} attrNameBefore The name of the attribute before it was renamed.
-  @param  {String} attrNameAfter The name of the attribute after it was renamed.
+  @param  {string} tableName The name of the table.
+  @param  {string} attrNameBefore The name of the attribute before it was renamed.
+  @param  {string} attrNameAfter The name of the attribute after it was renamed.
   @param  {Object} options
   @param  {Boolean|Function} [options.logging] A function that logs the sql queries, or false for explicitly not logging these queries
 
@@ -100,7 +92,7 @@ function renameColumn(tableName, attrNameBefore, attrNameAfter, options) {
     const sql = this.QueryGenerator.renameColumnQuery(tableName, attrNameBefore, attrNameAfter, fields);
     const subQueries = sql.split(';').filter(q => q !== '');
 
-    return Promise.each(subQueries, subQuery => this.sequelize.query(subQuery + ';', _.assign({raw: true}, options)));
+    return Promise.each(subQueries, subQuery => this.sequelize.query(`${subQuery};`, Object.assign({ raw: true }, options)));
   });
 }
 exports.renameColumn = renameColumn;
@@ -130,15 +122,18 @@ function removeConstraint(tableName, constraintName, options) {
         createTableSql += ';';
 
         return this.describeTable(tableName, options);
-      } else {
-        throw new UnknownConstraintError(`Constraint ${constraintName} on table ${tableName} does not exist`);
       }
+      throw new sequelizeErrors.UnknownConstraintError({
+        message: `Constraint ${constraintName} on table ${tableName} does not exist`,
+        constraint: constraintName,
+        table: tableName
+      });
     })
     .then(fields => {
       const sql = this.QueryGenerator._alterConstraintQuery(tableName, fields, createTableSql);
       const subQueries = sql.split(';').filter(q => q !== '');
 
-      return Promise.each(subQueries, subQuery => this.sequelize.query(subQuery + ';', _.assign({raw: true}, options)));
+      return Promise.each(subQueries, subQuery => this.sequelize.query(`${subQuery};`, Object.assign({ raw: true }, options)));
     });
 }
 exports.removeConstraint = removeConstraint;
@@ -148,13 +143,13 @@ function addConstraint(tableName, options) {
   const describeCreateTableSql = this.QueryGenerator.describeCreateTableQuery(tableName);
   let createTableSql;
 
-  return this.sequelize.query(describeCreateTableSql, options)
+  return this.sequelize.query(describeCreateTableSql, Object.assign({}, options, { type: QueryTypes.SELECT, raw: true }))
     .then(constraints => {
       const sql = constraints[0].sql;
       const index = sql.length - 1;
       //Replace ending ')' with constraint snippet - Simulates String.replaceAt
       //http://stackoverflow.com/questions/1431094
-      createTableSql = sql.substr(0, index) +  `, ${constraintSnippet})` + sql.substr(index + 1) + ';';
+      createTableSql = `${sql.substr(0, index)}, ${constraintSnippet})${sql.substr(index + 1)};`;
 
       return this.describeTable(tableName, options);
     })
@@ -162,14 +157,14 @@ function addConstraint(tableName, options) {
       const sql = this.QueryGenerator._alterConstraintQuery(tableName, fields, createTableSql);
       const subQueries = sql.split(';').filter(q => q !== '');
 
-      return Promise.each(subQueries, subQuery => this.sequelize.query(subQuery + ';', _.assign({raw: true}, options)));
+      return Promise.each(subQueries, subQuery => this.sequelize.query(`${subQuery};`, Object.assign({ raw: true }, options)));
     });
 }
 exports.addConstraint = addConstraint;
 
 /**
  *
- * @param {String} tableName
+ * @param {string} tableName
  * @param {Object} options  Query Options
  *
  * @private

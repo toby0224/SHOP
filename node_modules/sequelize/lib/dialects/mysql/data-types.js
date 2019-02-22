@@ -36,22 +36,6 @@ module.exports = BaseTypes => {
   BaseTypes.GEOMETRY.types.mysql = ['GEOMETRY'];
   BaseTypes.JSON.types.mysql = ['JSON'];
 
-  function BLOB(length) {
-    if (!(this instanceof BLOB)) return new BLOB(length);
-    BaseTypes.BLOB.apply(this, arguments);
-  }
-  inherits(BLOB, BaseTypes.BLOB);
-
-  BLOB.parse = function(value, options, next) {
-    const data = next();
-
-    if (Buffer.isBuffer(data) && data.length === 0) {
-      return null;
-    }
-
-    return data;
-  };
-
   function DECIMAL(precision, scale) {
     if (!(this instanceof DECIMAL)) return new DECIMAL(precision, scale);
     BaseTypes.DECIMAL.apply(this, arguments);
@@ -79,7 +63,7 @@ module.exports = BaseTypes => {
   inherits(DATE, BaseTypes.DATE);
 
   DATE.prototype.toSql = function toSql() {
-    return 'DATETIME' + (this._length ? '(' + this._length + ')' : '');
+    return `DATETIME${this._length ? `(${this._length})` : ''}`;
   };
 
   DATE.prototype._stringify = function _stringify(date, options) {
@@ -102,7 +86,7 @@ module.exports = BaseTypes => {
     if (moment.tz.zone(options.timezone)) {
       value = moment.tz(value, options.timezone).toDate();
     } else {
-      value = new Date(value + ' ' + options.timezone);
+      value = new Date(`${value} ${options.timezone}`);
     }
 
     return value;
@@ -137,10 +121,10 @@ module.exports = BaseTypes => {
 
     if (_.isEmpty(this.type)) {
       this.sqlType = this.key;
-    } else if (_.includes(SUPPORTED_GEOMETRY_TYPES, this.type)) {
+    } else if (SUPPORTED_GEOMETRY_TYPES.includes(this.type)) {
       this.sqlType = this.type;
     } else {
-      throw new Error('Supported geometry types are: ' + SUPPORTED_GEOMETRY_TYPES.join(', '));
+      throw new Error(`Supported geometry types are: ${SUPPORTED_GEOMETRY_TYPES.join(', ')}`);
     }
   }
   inherits(GEOMETRY, BaseTypes.GEOMETRY);
@@ -175,7 +159,7 @@ module.exports = BaseTypes => {
   inherits(ENUM, BaseTypes.ENUM);
 
   ENUM.prototype.toSql = function toSql(options) {
-    return 'ENUM(' + _.map(this.values, value => options.escape(value)).join(', ') + ')';
+    return `ENUM(${this.values.map(value => options.escape(value)).join(', ')})`;
   };
 
   function JSONTYPE() {
@@ -195,7 +179,6 @@ module.exports = BaseTypes => {
     UUID,
     GEOMETRY,
     DECIMAL,
-    BLOB,
     JSON: JSONTYPE
   };
 

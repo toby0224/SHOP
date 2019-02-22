@@ -8,6 +8,21 @@ module.exports = BaseTypes => {
   const warn = BaseTypes.ABSTRACT.warn.bind(undefined, 'https://msdn.microsoft.com/en-us/library/ms187752%28v=sql.110%29.aspx');
 
   /**
+   * Removes unsupported MSSQL options, i.e., LENGTH, UNSIGNED and ZEROFILL, for the integer data types.
+   * @param dataType The base integer data type.
+   * @private
+   */
+  function removeUnsupportedIntegerOptions(dataType) {
+    if (dataType._length || dataType.options.length || dataType._unsigned || dataType._zerofill) {
+      warn(`MSSQL does not support '${dataType.key}' with options. Plain '${dataType.key}' will be used instead.`);
+      dataType._length = undefined;
+      dataType.options.length = undefined;
+      dataType._unsigned = undefined;
+      dataType._zerofill = undefined;
+    }
+  }
+
+  /**
    * types: [hex, ...]
    * @see hex here https://github.com/tediousjs/tedious/blob/master/src/data-type.js
    */
@@ -53,7 +68,7 @@ module.exports = BaseTypes => {
   };
 
   BLOB.prototype._hexify = function _hexify(hex) {
-    return '0x' + hex;
+    return `0x${hex}`;
   };
 
   function STRING(length, binary) {
@@ -64,19 +79,20 @@ module.exports = BaseTypes => {
 
   STRING.prototype.toSql = function toSql() {
     if (!this._binary) {
-      return 'NVARCHAR(' + this._length + ')';
-    } else {
-      return 'BINARY(' + this._length + ')';
+      return `NVARCHAR(${this._length})`;
     }
+    return `BINARY(${this._length})`;
   };
 
   STRING.prototype.escape = false;
   STRING.prototype._stringify = function _stringify(value, options) {
     if (this._binary) {
       return BLOB.prototype._stringify(value);
-    } else {
-      return options.escape(value);
     }
+    return options.escape(value);
+  };
+  STRING.prototype._bindParam = function _bindParam(value, options) {
+    return options.bindParam(this._binary ? Buffer.from(value) : value);
   };
 
   function TEXT(length) {
@@ -152,14 +168,7 @@ module.exports = BaseTypes => {
     if (!(this instanceof INTEGER)) return new INTEGER(length);
     BaseTypes.INTEGER.apply(this, arguments);
 
-    // MSSQL does not support any options for integer
-    if (this._length || this.options.length || this._unsigned || this._zerofill) {
-      warn('MSSQL does not support INTEGER with options. Plain `INTEGER` will be used instead.');
-      this._length = undefined;
-      this.options.length = undefined;
-      this._unsigned = undefined;
-      this._zerofill = undefined;
-    }
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(INTEGER, BaseTypes.INTEGER);
 
@@ -167,29 +176,14 @@ module.exports = BaseTypes => {
     if (!(this instanceof TINYINT)) return new TINYINT(length);
     BaseTypes.TINYINT.apply(this, arguments);
 
-    // MSSQL does not support any options for tinyint
-    if (this._length || this.options.length || this._unsigned || this._zerofill) {
-      warn('MSSQL does not support TINYINT with options. Plain `TINYINT` will be used instead.');
-      this._length = undefined;
-      this.options.length = undefined;
-      this._unsigned = undefined;
-      this._zerofill = undefined;
-    }
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(TINYINT, BaseTypes.TINYINT);
 
   function SMALLINT(length) {
     if (!(this instanceof SMALLINT)) return new SMALLINT(length);
     BaseTypes.SMALLINT.apply(this, arguments);
-
-    // MSSQL does not support any options for smallint
-    if (this._length || this.options.length || this._unsigned || this._zerofill) {
-      warn('MSSQL does not support SMALLINT with options. Plain `SMALLINT` will be used instead.');
-      this._length = undefined;
-      this.options.length = undefined;
-      this._unsigned = undefined;
-      this._zerofill = undefined;
-    }
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(SMALLINT, BaseTypes.SMALLINT);
 
@@ -197,14 +191,7 @@ module.exports = BaseTypes => {
     if (!(this instanceof BIGINT)) return new BIGINT(length);
     BaseTypes.BIGINT.apply(this, arguments);
 
-    // MSSQL does not support any options for bigint
-    if (this._length || this.options.length || this._unsigned || this._zerofill) {
-      warn('MSSQL does not support BIGINT with options. Plain `BIGINT` will be used instead.');
-      this._length = undefined;
-      this.options.length = undefined;
-      this._unsigned = undefined;
-      this._zerofill = undefined;
-    }
+    removeUnsupportedIntegerOptions(this);
   }
   inherits(BIGINT, BaseTypes.BIGINT);
 
