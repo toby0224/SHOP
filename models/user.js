@@ -1,5 +1,5 @@
-const mongodb = require('mongodb');
-const getDb = require('../util/database').getDb;
+const mongodb = require("mongodb");
+const getDb = require("../util/database").getDb;
 
 const ObjectId = mongodb.ObjectId;
 
@@ -13,7 +13,7 @@ class User {
 
   save() {
     const db = getDb();
-    return db.collection('users').insertOne(this);
+    return db.collection("users").insertOne(this);
   }
 
   addToCart(product) {
@@ -37,7 +37,7 @@ class User {
     };
     const db = getDb();
     return db
-      .collection('users')
+      .collection("users")
       .updateOne(
         { _id: new ObjectId(this._id) },
         { $set: { cart: updatedCart } }
@@ -50,7 +50,7 @@ class User {
       return i.productId;
     });
     return db
-      .collection('products')
+      .collection("products")
       .find({ _id: { $in: productIds } })
       .toArray()
       .then(products => {
@@ -71,7 +71,7 @@ class User {
     });
     const db = getDb();
     return db
-      .collection('users')
+      .collection("users")
       .updateOne(
         { _id: new ObjectId(this._id) },
         { $set: { cart: { items: updatedCartItems } } }
@@ -89,12 +89,12 @@ class User {
             name: this.name
           }
         };
-        return db.collection('orders').insertOne(order);
+        return db.collection("orders").insertOne(order);
       })
       .then(result => {
         this.cart = { items: [] };
         return db
-          .collection('users')
+          .collection("users")
           .updateOne(
             { _id: new ObjectId(this._id) },
             { $set: { cart: { items: [] } } }
@@ -105,18 +105,18 @@ class User {
   getOrders() {
     const db = getDb();
     return db
-      .collection('orders')
-      .find({ 'user._id': new ObjectId(this._id) })
+      .collection("orders")
+      .find({ "user._id": new ObjectId(this._id) })
       .toArray();
   }
 
   static findById(userId) {
     const db = getDb();
     return db
-      .collection('users')
+      .collection("users")
       .findOne({ _id: new ObjectId(userId) })
       .then(user => {
-        console.log(user);
+        //console.log(user);
         return user;
       })
       .catch(err => {
