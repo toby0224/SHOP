@@ -1,2 +1,2 @@
 # Shop
-An online Shop built from the NODE JS course from udemy.
+An online Shop built using NODE.JS course from udemy.
